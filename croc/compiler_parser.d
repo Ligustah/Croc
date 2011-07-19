@@ -1482,39 +1482,40 @@ struct Parser
 		auto location = l.loc;
 
 		l.expect(Token.Import);
-
 		Expression expr;
+		bool multiPart = false;
+		Identifier firstPart;
+
+		scope name = new List!(char)(c.alloc);
+		firstPart = parseIdentifier();
+		name ~= firstPart.name;
+
+		while(l.type == Token.Dot)
+		{
+			multiPart = true;
+			l.next();
+			name ~= ".";
+			name ~= parseName();
+		}
+
+		auto arr = name.toArray();
+		expr = new(c) StringExp(c, location, c.newString(arr));
+		c.alloc.freeArray(arr);
+
 		Identifier importName;
 
-		if(l.type == Token.LParen)
+		if(multiPart)
 		{
-			l.next();
-			expr = parseExpression();
-			l.expect(Token.RParen);
+			l.expect(Token.As);
+			importName = parseIdentifier();
 		}
-		else
-		{
-			scope name = new List!(char)(c.alloc);
-
-			name ~= parseName();
-
-			while(l.type == Token.Dot)
-			{
-				l.next();
-				name ~= ".";
-				name ~= parseName();
-			}
-
-			auto arr = name.toArray();
-			expr = new(c) StringExp(c, location, c.newString(arr));
-			c.alloc.freeArray(arr);
-		}
-
-		if(l.type == Token.As)
+		else if(l.type == Token.As)
 		{
 			l.next();
 			importName = parseIdentifier();
 		}
+		else
+			importName = firstPart;
 
 		scope symbols = new List!(Identifier)(c.alloc);
 		scope symbolNames = new List!(Identifier)(c.alloc);

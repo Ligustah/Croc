@@ -47,20 +47,18 @@ static:
 	{
 		makeModule(t, "io", function uword(CrocThread* t)
 		{
-			importModuleNoNS(t, "stream");
+			auto stream = importModule(t, "stream");
 
-			lookup(t, "stream.stdin");
-			newGlobal(t, "stdin");
+			field(t, stream, "stdin");  newGlobal(t, "stdin");
+			field(t, stream, "stdout"); newGlobal(t, "stdout");
+			field(t, stream, "stderr"); newGlobal(t, "stderr");
 
-			lookup(t, "stream.stdout");
-			newGlobal(t, "stdout");
-
-			lookup(t, "stream.stderr");
-			newGlobal(t, "stderr");
-
-			newFunction(t, 1, &inFile,                "inFile");        newGlobal(t, "inFile");
-			newFunction(t, 2, &outFile,               "outFile");       newGlobal(t, "outFile");
-			newFunction(t, 2, &inoutFile,             "inoutFile");     newGlobal(t, "inoutFile");
+				field(t, stream, "InStream");
+			newFunction(t, 1, &inFile,                "inFile", 1);     newGlobal(t, "inFile");
+				field(t, stream, "OutStream");
+			newFunction(t, 2, &outFile,               "outFile", 1);    newGlobal(t, "outFile");
+				field(t, stream, "InoutStream");
+			newFunction(t, 2, &inoutFile,             "inoutFile", 1);  newGlobal(t, "inoutFile");
 			newFunction(t, 2, &rename,                "rename");        newGlobal(t, "rename");
 			newFunction(t, 1, &remove,                "remove");        newGlobal(t, "remove");
 			newFunction(t, 2, &copy,                  "copy");          newGlobal(t, "copy");
@@ -90,8 +88,11 @@ static:
 			newFunction(t, 1, &extension,             "extension");     newGlobal(t, "extension");
 			newFunction(t, 1, &fileName,              "fileName");      newGlobal(t, "fileName");
 
-				newFunction(t, &linesIterator, "linesIterator");
+					field(t, stream, "InStream");
+				newFunction(t, &linesIterator, "linesIterator", 1);
 			newFunction(t, 1, &lines, "lines", 1);        newGlobal(t, "lines");
+
+			pop(t);
 
 			return 0;
 		});
@@ -104,7 +105,7 @@ static:
 		auto name = checkStringParam(t, 1);
 		auto f = safeCode(t, new BufferedInput(new File(name, File.ReadExisting)));
 
-		lookupCT!("stream.InStream")(t);
+		getUpval(t, 0);
 		pushNull(t);
 		pushNativeObj(t, f);
 		rawCall(t, -3, 1);
@@ -130,7 +131,7 @@ static:
 
 		auto f = safeCode(t, new BufferedOutput(new File(name, style)));
 
-		lookupCT!("stream.OutStream")(t);
+		getUpval(t, 0);
 		pushNull(t);
 		pushNativeObj(t, f);
 		rawCall(t, -3, 1);
@@ -159,7 +160,7 @@ static:
 		// TODO: figure out some way of making inout files buffered?
 		auto f = safeCode(t, new File(name, style));
 
-		lookupCT!("stream.InoutStream")(t);
+		getUpval(t, 0);
 		pushNull(t);
 		pushNativeObj(t, f);
 		rawCall(t, -3, 1);
@@ -441,7 +442,8 @@ static:
 
 	uword linesIterator(CrocThread* t)
 	{
-		auto lines = checkInstParam!(InStreamObj.Members)(t, 0, "stream.InStream").lines;
+		getUpval(t, 0); checkInstParamSlot(t, 0, -1); pop(t);
+		auto lines = getMembers!(InStreamObj.Members)(t, 0).lines;
 		auto index = checkIntParam(t, 1) + 1;
 		auto line = safeCode(t, lines.next());
 

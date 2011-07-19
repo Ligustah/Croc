@@ -1,8 +1,4 @@
-/// This is a comment for the moduuuuule
 module samples.simple
-
-/// DOCS!
-local x, y = 3, 4
 
 function main()
 {
@@ -256,8 +252,6 @@ function dumpStdlib(x)
 		dumpItem(child)
 	}
 }
-
-dumpStdlib(_G)
 
 /*
 I guess it's baselib (but could be moved?)

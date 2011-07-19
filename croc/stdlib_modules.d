@@ -60,16 +60,15 @@ static:
 
 			pushString(t, "loaders");
 				dup(t, ns); newFunctionWithEnv(t, 1, &customLoad,    "customLoad");
-				dup(t, ns); newFunctionWithEnv(t, 1, &checkTaken,    "checkTaken");
 				dup(t, ns); newFunctionWithEnv(t, 1, &loadFiles,     "loadFiles");
 
 				version(CrocDynLibs)
 				{
 					dup(t, ns); newFunctionWithEnv(t, 1, &loadDynlib, "loadDynlib");
-					newArrayFromStack(t, 4);
+					newArrayFromStack(t, 3);
 				}
 				else
-					newArrayFromStack(t, 3);
+					newArrayFromStack(t, 2);
 			fielda(t, ns);
 		newGlobal(t, "modules");
 	}
@@ -79,8 +78,7 @@ static:
 		auto name = checkStringParam(t, 1);
 
 		pushGlobal(t, "loaded");
-		dup(t, 1);
-		idx(t, -2);
+		field(t, -1, name);
 
 		if(isNamespace(t, -1))
 			return 1;
@@ -94,8 +92,7 @@ static:
 		auto name = checkStringParam(t, 1);
 
 		pushGlobal(t, "loaded");
-		dup(t, 1);
-		idx(t, -2);
+		field(t, -1, name);
 
 		if(isNull(t, -1))
 			throwException(t, "Attempting to reload module '{}' which has not yet been loaded", name);
@@ -175,53 +172,37 @@ static:
 		// Make the namespace
 		auto ns = pushGlobal(t, "_G");
 
-		foreach(segment; name.delimiters("."))
-		{
-			pushString(t, segment);
+		pushGlobal(t, "loaded");
 
-			if(opin(t, -1, ns))
-			{
-				field(t, ns);
+		if(hasField(t, -1, name))
+			field(t, -1, name);
+		else
+			newNamespace(t, ns, name);
 
-				if(!isNamespace(t, -1))
-					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
-			}
-			else
-			{
-				pop(t);
-				newNamespace(t, ns, segment);
-				dup(t);
-				fielda(t, ns, segment);
-			}
+		insertAndPop(t, ns);
 
-			insertAndPop(t, ns);
-		}
-
+		// Clear if reloading
 		if(len(t, ns) > 0)
 			clearNamespace(t, ns);
 
+		// Call the top-level
+		dup(t, ns);
+
 		if(isFunction(t, 1))
 		{
-			dup(t, ns);
 			setFuncEnv(t, 1);
 			dup(t, 1);
-			dup(t, ns);
-			rawCall(t, -2, 0);
 		}
 		else
-		{
-			// Create the function and call it with its namespace as 'this'
-			dup(t, ns);
-			auto func = newFunctionWithEnv(t, 1);
-			dup(t, ns);
-			rawCall(t, func, 0);
-		}
+			newFunctionWithEnv(t, 1);
+
+		dup(t, ns);
+		rawCall(t, -2, 0);
 
 		// Add it to the loaded table
 		auto loaded = pushGlobal(t, "loaded");
-		pushString(t, name);
 		dup(t, ns);
-		idxa(t, loaded);
+		fielda(t, loaded, name);
 		pop(t);
 
 		return 1;
@@ -254,32 +235,6 @@ static:
 
 		if(isFunction(t, -1) || isNamespace(t, -1) || isFuncDef(t, -1))
 			return 1;
-
-		return 0;
-	}
-
-	package uword checkTaken(CrocThread* t)
-	{
-		auto name = checkStringParam(t, 1);
-
-		pushGlobal(t, "_G");
-
-		foreach(segment; name.delimiters("."))
-		{
-			pushString(t, segment);
-
-			if(opin(t, -1, -2))
-			{
-				field(t, -2);
-
-				if(!isNamespace(t, -1))
-					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
-
-				insertAndPop(t, -2);
-			}
-			else
-				return 0;
-		}
 
 		return 0;
 	}
