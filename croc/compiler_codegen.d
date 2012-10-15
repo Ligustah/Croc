@@ -159,10 +159,13 @@ public:
 		{
 			fs.dup();
 			fs.pushString(field.name);
-			fs.toSource(field.initializer.location);
-			fs.field();
 			visit(field.initializer);
-			fs.assign(field.initializer.location, 1, 1);
+			fs.toSource(field.initializer.location);
+
+			if(field.isMethod)
+				fs.addClassMethod(field.initializer.location, field.isPublic);
+			else
+				fs.addClassField(field.initializer.location, field.isPublic);
 		}
 	}
 
@@ -515,7 +518,7 @@ public:
 	override AssertStmt visit(AssertStmt s)
 	{
 		assert(c.asserts()); // can't have made it here unless asserts are enabled
-		
+
 		InstRef i = codeCondition(s.cond);
 		fs.patchFalseToHere(i);
 		visit(s.msg);
@@ -767,7 +770,7 @@ public:
 	override ForeachStmt visit(ForeachStmt s)
 	{
 		visitForeach(s.location, s.endLocation, s.name, s.indices, s.container, { visit(s.code); });
-		
+
 		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
@@ -1053,7 +1056,7 @@ public:
 		fs.toSource(s.lhs.endLocation);
 
 		codeGenList(s.operands, false);
-		
+
 		fs.concatEq(s.endLocation, s.operands.length);
 		fs.assign(s.endLocation, 1, 1);
 

@@ -205,7 +205,7 @@ private:
 struct NamespaceDesc
 {
 private:
-	uint prevReg;	
+	uint prevReg;
 }
 
 struct SwitchDesc
@@ -488,7 +488,7 @@ package:
 		}
 
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
-		
+
 		if(mExpSP > 0 && getExp(-1).regAfter < mScope.firstFreeReg)
 			getExp(-1).regAfter = mScope.firstFreeReg;
 	}
@@ -935,7 +935,7 @@ package:
 
 		pop();
 	}
-		
+
 	// [src] => []
 	void assertFail(ref CompileLoc loc)
 	{
@@ -1033,6 +1033,44 @@ package:
 		codeRD(loc, Op.SaveRets, first);
 		codeUImm(arg);
 		pop(numRets);
+	}
+
+	// [Local Const src] => []
+	void addClassField(ref CompileLoc loc, bool isPublic)
+	{
+		auto cls = getExp(-3);
+		auto name = getExp(-2);
+		auto src = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(cls.type == ExpType.Local);
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+
+		codeRD(loc, Op.AddField, cls);
+		codeRC(name);
+		codeRC(src);
+		codeUImm(isPublic ? 1 : 0);
+
+		pop(3);
+	}
+
+	// [Local Const src] => []
+	void addClassMethod(ref CompileLoc loc, bool isPublic)
+	{
+		auto cls = getExp(-3);
+		auto name = getExp(-2);
+		auto src = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(cls.type == ExpType.Local);
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+
+		codeRD(loc, Op.AddMethod, cls);
+		codeRC(name);
+		codeRC(src);
+		codeUImm(isPublic ? 1 : 0);
+
+		pop(3);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -2000,7 +2038,7 @@ private:
 			default: assert(false);
 		}
 	}
-	
+
 	void patchJumpTo(uint src, uint dest)
 	{
 		setJumpOffset(src, jumpDiff(src, dest));
@@ -2177,7 +2215,7 @@ private:
 	{
 		assert(opcode <= Op.max);
 		assert(dest <= Instruction.rdMax);
-		
+
 		debug(WRITECODE) Stdout.newline.format("({}:{})[{}] {} RD {}", loc.line, loc.col, mCode.length, OpNames[opcode], dest);
 
 		Instruction i = void;
@@ -2612,6 +2650,11 @@ package:
 			// (rd, rt, uimm, uimm)
 			case Op.SuperMethod:     Stdout("smethod"); rd(i); rc(); uimm(); uimm(); break;
 			case Op.TailSuperMethod: Stdout("tsmethod"); rd(i); rc(); uimm(); nextIns(); break;
+
+			// (rd, rs, rt, uimm)
+			case Op.AddField: Stdout("addfield"); goto _12;
+			case Op.AddMethod: Stdout("addmethod"); goto _12;
+			_12: rd(i); rc(); rc(); uimm(); break;
 
 			// (rd, rs, rt, uimm, uimm)
 			case Op.Method:     Stdout("method"); rd(i); rc(); rc(); uimm(); uimm(); break;
